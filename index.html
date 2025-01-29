@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מונה זמן עד הזריחה</title>
+
+    <!-- Tailwind CSS - ספריית CSS לעיצוב -->
+    <script src="libs/tailwind.js"></script>
+
+    <!-- React - ספריית JavaScript ליצירת ממשק משתמש -->
+    <script src="libs/react.development.js"></script>
+    <script src="libs/react-dom.development.js"></script>
+
+    <!-- Babel - ממיר קוד JavaScript מודרני לקוד תואם דפדפנים ישנים -->
+    <script src="libs/babel.min.js"></script>
+
+    <!-- Lucide Icons - ספריית אייקונים -->
+    <script src="libs/lucide.js"></script>
+</head>
+
+<body>
+    <!-- שורש האפליקציה -->
+    <div id="root"></div>
+    <script type="text/babel">
+        // ============================================
+        // קבועים וזמנים
+        // ============================================
+
+        // הגדרת זמני היום והלילה הקבועים במערכת
+        const NIGHT_START_HOUR = '19:00'; // שעת תחילת הלילה
+        const NIGHT_END_HOUR = '05:45';   // שעת סוף הלילה (זריחה)
+
+        // הגדרת זמן מותאם לבדיקות (null לשימוש בזמן אמיתי)
+        const CUSTOM_TIME = ''; // לדוגמה: '01:30' או '06:30'
+
+        // ============================================
+        // פונקציות עזר
+        // ============================================
+
+        /**
+         * מחשבת את הזמן שנותר עד לזמן היעד
+         * @param {string} targetTime - זמן היעד בפורמט "HH:MM"
+         * @param {Date} currentDate - תאריך ושעה נוכחיים
+         * @returns {string} הזמן שנותר בפורמט "HH:MM"
+         */
+        const calculateTimeLeft = (targetTime, currentDate) => {
+            // המרת זמן היעד למספרים
+            const [targetHour, targetMinute] = targetTime.split(':').map(Number);
+            const currentHour = currentDate.getHours();
+            const currentMinute = currentDate.getMinutes();
+
+            // חישוב השעות והדקות שנותרו
+            let hoursLeft = targetHour - currentHour;
+            let minutesLeft = targetMinute - currentMinute;
+
+            // תיקון במקרה של דקות שליליות
+            if (minutesLeft < 0) {
+                hoursLeft--;
+                minutesLeft += 60;
+            }
+
+            // תיקון במקרה של שעות שליליות (מעבר ליום הבא)
+            if (hoursLeft < 0) {
+                hoursLeft += 24;
+            }
+
+            return `${hoursLeft}:${minutesLeft.toString().padStart(2, '0')}`;
+        };
+
+        // ============================================
+        // קומפוננטת טיימר יום/לילה
+        // ============================================
+
+        /**
+         * קומפוננטה ראשית המציגה טיימר המתעדכן בזמן אמת ומראה:
+         * - האם כרגע יום או לילה
+         * - כמה זמן נותר עד לזריחה/שקיעה
+         * - פרוגרס בר המציג את ההתקדמות במהלך הלילה
+         * - שעון בזמן אמת
+         */
+        const DayNightTimer = () => {
+            // ============================================
+            // מצב (State) הקומפוננטה
+            // ============================================
+            const [progress, setProgress] = React.useState(0);                   // אחוז ההתקדמות בלילה (0-100)
+            const [timeLeft, setTimeLeft] = React.useState('');                  // זמן שנותר עד לאירוע הבא
+            const [isNight, setIsNight] = React.useState(false);                 // האם כרגע לילה
+            const [sleepTime, setSleepTime] = React.useState(NIGHT_START_HOUR);  // זמן השינה
+            const [wakeupTime, setWakeupTime] = React.useState(NIGHT_END_HOUR);  // זמן הקימה
+
+            window.setProgress = setProgress;
+
+            // פונקציה שמחזירה את הזמן הנוכחי או את הזמן המותאם אם מוגדר
+            const getCurrentTime = () => {
+                if (CUSTOM_TIME) {
+                    const now = new Date();
+                    const [hours, minutes] = CUSTOM_TIME.split(':').map(Number);
+                    now.setHours(hours, minutes, 0, 0);
+                    return now;
+                }
+                return new Date();
+            };
+
+            // אפקט צד להתחלת הטיימר והתצוגה
+            React.useEffect(() => {
+                /**
+                 * מחשבת את אחוז ההתקדמות של הלילה ומעדכנת את המצב בהתאם
+                 * כולל חישוב הזמן שנותר עד לזריחה/שקיעה הבאה
+                 */
+                const calculateProgress = () => {
+                    // קבלת הזמן הנוכחי
+                    const now = getCurrentTime();
+                    const currentHour = now.getHours();
+
+                    // המרת זמני השינה והקימה למספרים
+                    const [sleepHour, sleepMinute] = sleepTime.split(':').map(Number);
+                    const [wakeHour, wakeMinute] = wakeupTime.split(':').map(Number);
+
+                    // בדיקה האם עכשיו לילה
+                    // מצב לילה מוגדר כאשר:
+                    // 1. השעה גדולה משעת השינה
+                    // 2. או השעה שווה לשעת השינה והדקות גדולות/שוות
+                    // 3. או השעה קטנה משעת הקימה
+                    // 4. או השעה שווה לשעת הקימה והדקות קטנות
+                    const night = (currentHour > sleepHour || (currentHour === sleepHour && now.getMinutes() >= sleepMinute)) ||
+                        (currentHour < wakeHour || (currentHour === wakeHour && now.getMinutes() < wakeMinute));
+                    setIsNight(night);
+
+                    if (night) {
+                        // חישוב זמני שקיעה וזריחה
+                        const sunset = new Date(now);
+                        const sunrise = new Date(now);
+
+                        sunset.setHours(sleepHour, sleepMinute, 0);
+                        sunrise.setHours(wakeHour, wakeMinute, 0);
+
+                        // תיקון התאריך אם נדרש
+                        if (currentHour < 6) {
+                            sunset.setDate(sunset.getDate() - 1);  // השקיעה הייתה אתמול
+                        } else {
+                            sunrise.setDate(sunrise.getDate() + 1); // הזריחה תהיה מחר
+                        }
+
+                        // חישוב ההתקדמות באחוזים
+                        const nightDuration = sunrise - sunset;
+                        const elapsed = now - sunset;
+                        const newProgress = Math.min(100, Math.max(0, (elapsed / nightDuration) * 100));
+
+                        setProgress(newProgress);
+                        setTimeLeft(calculateTimeLeft(wakeupTime, now));
+
+                    } else {
+                        // ביום: אין התקדמות ומחשבים זמן עד הלילה
+                        setProgress(0);
+                        setTimeLeft(calculateTimeLeft(NIGHT_START_HOUR, now));
+                    }
+
+
+                };
+
+                // הפעלה ראשונית וקביעת אינטרוול לעדכון כל דקה
+                calculateProgress();
+                const interval = setInterval(calculateProgress, 60000);
+
+                // אתחול האייקונים
+                lucide.createIcons();
+
+                // ניקוי בעת הסרת הקומפוננטה
+                return () => clearInterval(interval);
+            }, []);
+
+            // אתחול האייקונים אחרי כל רינדור
+            React.useEffect(() => {
+                lucide.createIcons();
+            });
+
+            // צבעי רקע וטקסט בהתאם למצב יום/לילה
+            const bgColor = isNight ? 'bg-slate-900' : 'bg-sky-100';
+            const textColor = isNight ? 'text-white' : 'text-slate-900';
+
+            // ============================================
+            // רינדור הממשק
+            // ============================================
+            return (
+                <div className="h-screen w-full flex items-center justify-center p-4 bg-gradient-to-b from-slate-800 to-slate-900 overflow-hidden">
+                    <div className={`${bgColor} rounded-xl shadow-xl transition-all duration-1000 w-full max-w-2xl`}>
+                        <div className="p-8">
+                            <div className="flex flex-col items-center space-y-4">
+                                {/* תמונת מצב יום/לילה */}
+                                <div className="bg-white p-3 rounded-2xl flex flex-col items-center aspect-square">
+                                    <img
+                                        src={isNight ? 'bed.png' : 'morning.png'}
+                                        alt={isNight ? 'לילה' : 'בוקר'}
+                                        className="h-[11vh] w-[11vh] object-contain transition-all duration-1000"
+                                    />
+                                    <div className="text-slate-900 text-[3vh] font-bold mt-2">
+                                        {'עכשיו ' + (isNight ? 'לילה' : 'יום')}
+                                    </div>
+                                </div>
+
+                                {/* כותרת דינמית */}
+                                <h2 className={`text-[4vh] font-bold ${textColor} transition-all duration-1000 text-center`}>
+                                    {isNight ? 'זמן עד הזריחה' : 'זמן עד הלילה'}
+                                </h2>
+
+                                {/* מיכל הפרוגרס בר */}
+                                <div className="w-full bg-slate-900/40 backdrop-blur-sm rounded-2xl h-[15vh] border-2 border-slate-600 shadow-lg p-4">
+                                    {/* רקע זכוכיתי */}
+                                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-slate-800/50 to-slate-900/50"></div>
+
+                                    {/* מיכל פלקס לאייקונים והפרוגרס בר */}
+                                    <div className="relative z-10 flex items-center justify-between h-full">
+                                        {/* אייקון ירח */}
+                                        <div className="flex-shrink-0">
+                                            <i data-lucide="moon" className="w-8 h-8 text-blue-200 transform transition-transform hover:scale-110 duration-300 animate-pulse drop-shadow-lg"></i>
+                                        </div>
+
+                                        {/* הפרוגרס בר עצמו */}
+                                        <div className="h-[8vh] bg-slate-800 rounded-xl border border-slate-600 mx-3 flex-1">
+                                            {/* הפרוגרס עם אנימציה */}
+                                            <div
+                                                className="h-full rounded-xl transition-all duration-1000 bg-gradient-to-r from-blue-500/90 via-blue-600/90 to-blue-700/90 shadow-[0_0_20px_rgba(37,99,235,0.4)] relative"
+                                                style={{ width: `${progress}%` }}
+                                            >
+                                                {/* אפקט זוהר בקצוות */}
+                                                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-blue-400/20 to-transparent"></div>
+
+                                                {/* אחוזי התקדמות (מוצג רק בלילה ומעל 13%) */}
+                                                {(isNight && progress > 13) ? <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-200 text-[3.5vh] font-bold px-2">
+                                                    {Math.round(progress)}%
+                                                </div> : ''}
+                                            </div>
+                                        </div>
+
+                                        {/* אייקון שמש */}
+                                        <div className="flex-shrink-0">
+                                            <i data-lucide="sun" className="w-8 h-8 text-yellow-600 transform transition-transform hover:scale-110 duration-300 drop-shadow-lg"></i>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* תצוגת זמן שנותר */}
+                                <div className={`text-[2.5vh] font-bold ${textColor} transition-all duration-1000 text-center flex flex-col gap-2`}>
+                                    נותרו {timeLeft}
+                                </div>
+
+                                {/* שעון בזמן אמת */}
+                                <div className={`${textColor} font-bold text-[5vh] bg-slate-800/30 backdrop-blur-sm rounded-xl px-4 py-2 border border-slate-600/50 shadow-lg inline-flex items-center gap-3 mx-auto`}>
+                                    <i data-lucide="clock" className="w-[5vh] h-[5vh] text-blue-200"></i>
+                                    {getCurrentTime().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+
+                                {/* התראה על זמן מותאם */}
+                                {CUSTOM_TIME && (
+                                    <div className={`text-[2vh] ${textColor} transition-all duration-1000 text-center mt-2`}>
+                                        ⚠️ מצב בדיקה: השעה הוגדרה ידנית ל-{CUSTOM_TIME}
+                                    </div>
+                                )}
+
+                                {/* ברכת יום/לילה */}
+                                <div className={`text-[3vh] ${textColor} transition-all duration-1000 text-center`}>
+                                    {(isNight ? '🌙 לילה טוב' : '☀️ יום טוב') + '!'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // הרצת האפליקציה
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<DayNightTimer />);
+
+    </script>
+</body>
+
+</html>
