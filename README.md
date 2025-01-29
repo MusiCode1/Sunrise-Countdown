@@ -13,6 +13,10 @@
 3. **סרגל התקדמות** - מראה כמה זמן עבר וכמה נשאר
 4. **שעון** - מציג בדיוק כמה שעות ודקות נשארו
 
+<div align="center">
+  <img src="https://imgur.com/VuipdyT.png" alt="צילום מסך של הממשק" width="400" style="border-radius: 10px; margin: 20px 0;"/>
+</div>
+
 ## זמני יום ולילה
 האפליקציה מתחשבת בשעות מוגדרות של תחילת הלילה וזמן הזריחה. ניתן להגדיר זמנים אלו בהתאם לצורך.
 
@@ -31,23 +35,25 @@
 ## מידע למפתחים
 
 ### טכנולוגיות
-- React (ללא בנייה מראש)
-- Tailwind CSS
-- Babel (לתמיכה ב-JSX)
+- React (נטען מ-CDN)
+- Tailwind CSS (נטען מ-CDN)
+- Babel (נטען מ-CDN)
+- Lucide Icons (ספריית אייקונים)
 
 ### קבצים בפרויקט
 - `index.html` - הקובץ הראשי
 - `bed.png` - תמונת לילה
 - `morning.png` - תמונת יום
-- ספריות ב-`/libs`:
-  - `react.development.js`
-  - `react-dom.development.js`
-  - `tailwind.js`
-  - `babel.min.js`
 
 ### שינוי הגדרות זמן
 ניתן לשנות את זמני היום והלילה על ידי עדכון הקבועים בקוד:
 ```javascript
-const NIGHT_START_HOUR = 19; // שעת תחילת הלילה
-const NIGHT_END_HOUR = 6;   // שעת סוף הלילה (זריחה)
+const NIGHT_START_HOUR = '19:00'; // שעת תחילת הלילה
+const NIGHT_END_HOUR = '05:45';   // שעת סוף הלילה (זריחה)
+```
+
+### מצב בדיקה
+ניתן להגדיר זמן מותאם לבדיקות על ידי שינוי הקבוע:
+```javascript
+const CUSTOM_TIME = ''; // לדוגמה: '01:30' או '06:30'
 ```
